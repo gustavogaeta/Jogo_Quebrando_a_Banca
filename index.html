@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackjack Pro: Math Edition</title>
+    <style>
+        /* =========================================
+           RESET E VARIÁVEIS PRO
+        ========================================= */
+        :root {
+            --bg-body: #0a0e17;
+            --bg-table: radial-gradient(circle at top center, #162a4a 0%, #0a0e17 100%);
+            --panel-bg: rgba(255, 255, 255, 0.03);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --primary: #00e676; /* Verde Neon */
+            --secondary: #00b0ff; /* Azul Neon */
+            --accent: #ffd700; /* Ouro */
+            --danger: #ff1744; /* Vermelho Neon */
+            --shadow-card: -5px 5px 15px rgba(0,0,0,0.5);
+            --font-family: 'Poppins', sans-serif;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+        body {
+            background-color: var(--bg-body);
+            background-image: var(--bg-table);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            overflow-y: auto; /* Permite scroll se a tela for pequena */
+        }
+
+        /* =========================================
+           HEADER E LAYOUT PRINCIPAL
+        ========================================= */
+        header {
+            text-align: center;
+            padding: 15px 0;
+            background: rgba(0,0,0,0.5);
+            border-bottom: 1px solid var(--panel-border);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+        }
+
+        h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -1px; color: white; }
+        h1 span { color: var(--accent); }
+
+        .main-container {
+            flex: 1; display: flex; padding: 20px; gap: 20px;
+            max-width: 1400px; margin: 0 auto; width: 100%;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--panel-border);
+            border-radius: 20px; padding: 25px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .game-area { flex: 3; display: flex; flex-direction: column; justify-content: space-between; position: relative;}
+        .sidebar { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 320px; }
+
+        /* Responsividade para Telas Menores */
+        @media (max-width: 960px) {
+            .main-container { flex-direction: column; }
+            .sidebar { width: 100%; min-width: auto; }
+            .game-area { min-height: 500px; }
+        }
+
+        /* =========================================
+           MESA DE JOGO
+        ========================================= */
+        .table-section {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            margin: 10px 0; flex: 1; width: 100%;
+        }
+
+        .section-label {
+            font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 2px; font-weight: 600; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .score-tag {
+            background: rgba(0,0,0,0.6); padding: 4px 14px; border-radius: 20px;
+            color: white; font-weight: bold; border: 1px solid var(--panel-border); font-size: 1rem;
+        }
+
+        .card-slot {
+            display: flex; justify-content: center; align-items: center; min-height: 160px;
+        }
+
+        /* =========================================
+           CARTAS PRO
+        ========================================= */
+        .card {
+            width: 110px; height: 160px; background: #fff; border-radius: 12px;
+            box-shadow: var(--shadow-card); display: flex; flex-direction: column;
+            justify-content: space-between; padding: 12px; color: #1a1a1a;
+            position: relative; animation: cardDeal 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards;
+            opacity: 0; margin-left: -50px; border: 2px solid transparent;
+        }
+
+        .card:first-child { margin-left: 0; }
+        .card.red { color: #e53935; }
+        .card.black { color: #1a1a1a; }
+        
+        .card.hidden-card {
+            background: repeating-linear-gradient(45deg, #16213e, #16213e 10px, #0f172a 10px, #0f172a 20px) !important;
+            border: 3px solid #334155 !important;
+        }
+        .card.hidden-card * { display: none !important; }
+
+        .card-value { font-size: 24px; font-weight: 700; line-height: 1; }
+        .card-suit-small { font-size: 16px; margin-top: 2px; }
+        .card-suit-main { font-size: 56px; align-self: center; line-height: 1; margin-top: -10px;}
+        .card-bottom { transform: rotate(180deg); display: flex; flex-direction: column; align-items: flex-start;}
+
+        @keyframes cardDeal {
+            0% { transform: translate(100px, -200px) rotate(15deg); opacity: 0; }
+            100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+        }
+
+        /* =========================================
+           APOSTAS
+        ========================================= */
+        .betting-info { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .info-box { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid var(--panel-border); }
+        .info-box label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .info-box span { display: block; font-size: 1.6rem; font-weight: 700; color: var(--accent); margin-top: 5px; }
+
+        .chip-container { display: flex; justify-content: space-around; margin-top: 10px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; }
+        .chip {
+            width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; color: white; font-size: 1.1rem; cursor: pointer; transition: all 0.2s;
+            border: 4px dashed white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); position: relative;
+        }
+        .chip:hover:not(.disabled) { transform: translateY(-5px) scale(1.05); }
+        .chip.disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); pointer-events: none; }
+        
+        .chip-5 { background: #546e7a; border-color: #90a4ae; }
+        .chip-25 { background: #1e88e5; border-color: #90caf9; }
+        .chip-100 { background: #e53935; border-color: #ef9a9a; }
+        .chip-500 { background: #43a047; border-color: #a5d6a7; }
+        .chip::after { content: ''; position: absolute; top: 5px; left: 5px; right: 5px; bottom: 5px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); }
+
+        /* =========================================
+           GÊNIO (Sidebar)
+        ========================================= */
+        .count-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
+        .count-table th, .count-table td { padding: 6px 5px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .count-table th { color: var(--secondary); font-weight: 600; text-transform: uppercase; }
+        .count-table td.val { font-weight: 700; color: white; font-size: 1rem; }
+        
+        .deck-bar-container { margin-top: 15px; background: rgba(0,0,0,0.5); height: 10px; border-radius: 5px; overflow: hidden; border: 1px solid var(--panel-border); }
+        .deck-bar-fill { height: 100%; background: linear-gradient(90deg, var(--secondary), var(--primary)); width: 100%; transition: width 0.3s; }
+
+        /* =========================================
+           BOTÕES E AÇÕES
+        ========================================= */
+        .action-bar { background: rgba(0,0,0,0.4); padding: 15px 25px; border-radius: 16px; display: flex; justify-content: center; gap: 15px; border: 1px solid var(--panel-border); margin-top: 20px; }
+        .btn { padding: 12px 28px; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .btn:active { transform: translateY(2px); }
+        
+        .btn-deal { background: var(--accent); color: #000; width: 100%; margin-top: 15px;}
+        .btn-hit { background: var(--primary); color: #000; }
+        .btn-stand { background: var(--danger); color: #fff; }
+        .btn-clear { background: transparent; color: var(--text-muted); border: 1px solid var(--text-muted); width: 100%; margin-top: 10px; padding: 8px; font-size: 0.8rem; box-shadow: none;}
+        .btn-hack { background: transparent; color: var(--accent); border: 2px solid var(--accent); width: 100%; margin-top: 15px;}
+        
+        .btn-deal:hover { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+        .btn-hit:hover { box-shadow: 0 0 15px rgba(0, 230, 118, 0.4); }
+        .btn-stand:hover { box-shadow: 0 0 15px rgba(255, 23, 68, 0.4); }
+        .btn-hack:hover { background: rgba(255, 215, 0, 0.1); }
+        .btn-clear:hover { color: white; border-color: white; }
+
+        /* =========================================
+           MODAIS
+        ========================================= */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+        .modal-box { background: #0a1121; border: 1px solid var(--panel-border); border-radius: 20px; padding: 40px; max-width: 550px; width: 90%; text-align: center; transform: scale(0.8); transition: transform 0.3s; box-shadow: 0 0 50px rgba(0, 230, 118, 0.15); }
+        .modal-overlay.active .modal-box { transform: scale(1); }
+        .modal-title { font-size: 2rem; font-weight: 700; margin-bottom: 20px; }
+        .modal-title.prob { color: var(--primary); }
+        .modal-title.comb { color: var(--accent); }
+        .math-formula { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 12px; font-family: monospace; color: var(--text-muted); margin: 20px 0; font-size: 1.1rem; border: 1px solid var(--panel-border); }
+        .modal-input { width: 150px; font-size: 2.2rem; text-align: center; padding: 10px; margin: 25px 0; background: rgba(255,255,255,0.02); color: white; border: 2px solid var(--panel-border); border-radius: 12px; outline: none; transition: all 0.2s; font-family: inherit; font-weight: 700; }
+        .modal-input:focus { border-color: var(--secondary); box-shadow: 0 0 10px rgba(0, 176, 255, 0.3); }
+        .modal-actions { display: flex; gap: 15px; justify-content: center; }
+
+        /* =========================================
+           TOASTS & FX
+        ========================================= */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
+        .toast { background: rgba(20, 30, 48, 0.95); backdrop-filter: blur(10px); border-left: 5px solid; padding: 16px 20px; border-radius: 8px; color: white; font-weight: 600; font-size: 0.95rem; box-shadow: 0 5px 20px rgba(0,0,0,0.4); animation: slideInRight 0.3s forwards, fadeOut 0.3s 3.7s forwards; max-width: 320px; }
+        .toast.win { border-color: var(--primary); }
+        .toast.loss { border-color: var(--danger); }
+        .toast.info { border-color: var(--secondary); }
+        .toast.warn { border-color: var(--accent); }
+        
+        .hidden { display: none !important; }
+        .shake { animation: shake 0.4s; }
+        
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-10px);} 75% {transform: translateX(10px);} }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1><span>Blackjack</span> Pro</h1>
+        <div style="color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px;">Math Edition</div>
+    </header>
+
+    <div class="main-container">
+        
+        <main class="game-area">
+            <div class="table-section">
+                <div class="section-label">Dealer <span class="score-tag hidden" id="dealer-score">?</span></div>
+                <div class="card-slot" id="dealer-cards"></div>
+            </div>
+
+            <div class="table-section" style="border-top: 1px dashed rgba(255,255,255,0.03); padding-top: 20px;">
+                <div class="card-slot" id="player-cards"></div>
+                <div class="section-label" style="margin-top: 20px; margin-bottom: 0;">Sua Mão <span class="score-tag hidden" id="player-score">0</span></div>
+            </div>
+
+            <div class="action-bar hidden" id="game-actions">
+                <button class="btn btn-hit" onclick="window.MathEngine.triggerHitChallenge()">COMPRAR (Hit)</button>
+                <button class="btn btn-stand" onclick="window.Game.stand()">PARAR (Stand)</button>
+            </div>
+        </main>
+
+        <aside class="sidebar">
+            <div class="glass-panel">
+                <h3 style="color: white; text-align: center; margin-bottom: 15px; font-weight: 600;">💰 Apostas</h3>
+                <div class="betting-info">
+                    <div class="info-box"><label>Saldo</label><span id="ui-balance">$1000</span></div>
+                    <div class="info-box"><label>Aposta Atual</label><span id="ui-bet">$0</span></div>
+                </div>
+
+                <div class="chip-container" id="chip-panel">
+                    <div class="chip chip-5" onclick="window.Game.adjustBet(5)">5</div>
+                    <div class="chip chip-25" onclick="window.Game.adjustBet(25)">25</div>
+                    <div class="chip chip-100" onclick="window.Game.adjustBet(100)">100</div>
+                    <div class="chip chip-500" onclick="window.Game.adjustBet(500)">500</div>
+                </div>
+                
+                <button class="btn btn-clear" id="btn-clear" onclick="window.Game.clearBet()">Limpar Fichas</button>
+
+                <button class="btn btn-deal" id="btn-deal" onclick="window.Game.dealInitialHands()">Distribuir Cartas</button>
+            </div>
+
+            <div class="glass-panel" style="flex: 1;">
+                <h3 style="color: var(--secondary); text-align: center; font-weight: 600;">🧠 Visão do Gênio</h3>
+                <div style="border: 1px solid var(--panel-border); border-radius: 12px; background: rgba(0,0,0,0.2); padding: 5px 10px; margin-top: 10px;">
+                    <table class="count-table">
+                        <thead><tr><th>Carta</th><th>Restam</th></tr></thead>
+                        <tbody id="ui-counting"></tbody>
+                    </table>
+                </div>
+                
+                <div style="margin-top: 15px; text-align: center;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Baralho: <b id="ui-deck-size" style="color:white;">0</b> / 40</span>
+                    <div class="deck-bar-container"><div class="deck-bar-fill" id="ui-deck-bar"></div></div>
+                </div>
+
+                <button class="btn btn-hack hidden" id="btn-hack" onclick="window.MathEngine.triggerComboChallenge()">HACK COMBINATÓRIO ⚡</button>
+            </div>
+        </aside>
+
+    </div>
+
+    <div class="modal-overlay" id="modal-prob">
+        <div class="modal-box">
+            <h2 class="modal-title prob">Cálculo de Risco</h2>
+            <p style="color: var(--text-muted);">Para liberar o Hit, prove que conhece suas chances de sobrevivência (soma <= 21).</p>
+            <div class="math-formula">Casos Favoráveis = Cartas restantes que mantêm soma <= 21</div>
+            <p id="prob-question" style="color: var(--secondary); font-weight: bold; margin-top: 15px; font-size: 1.1rem; line-height: 1.4;"></p>
+            <input type="number" id="input-prob" class="modal-input" placeholder="?" autocomplete="off">
+            <div class="modal-actions">
+                <button class="btn btn-hit" onclick="window.MathEngine.validateHit()">Confirmar</button>
+                <button class="btn btn-stand" onclick="window.UI.closeModal('modal-prob')" style="background:transparent; color: var(--text-muted); box-shadow:none;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-comb">
+        <div class="modal-box">
+            <h2 class="modal-title comb">Hack Combinatório</h2>
+            <p style="color: var(--text-muted);">Resolva a combinação para dobrar a aposta de graça!</p>
+            <div class="math-formula">C(n, k) = n! / [k! * (n - k)!]</div>
+            <p id="comb-question" style="color: var(--accent); font-weight: bold; margin-top: 15px; font-size: 1.1rem; line-height: 1.4;"></p>
+            <input type="number" id="input-comb" class="modal-input" placeholder="?" autocomplete="off">
+            <div class="modal-actions">
+                <button class="btn btn-hack" style="width: auto; background: var(--accent); color: #000;" onclick="window.MathEngine.validateCombo()">Executar</button>
+                <button class="btn btn-stand" onclick="window.UI.closeModal('modal-comb')" style="background:transparent; color: var(--text-muted); box-shadow:none;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        // 1. Definição da Classe do Baralho
+        class Deck {
+            constructor() {
+                this.cards = [];
+                this.counts = {}; 
+                this.suits = ['♥', '♦', '♣', '♠'];
+                this.init();
+            }
+
+            init() {
+                this.cards = [];
+                this.counts = {1:4, 2:4, 3:4, 4:4, 5:4, 6:4, 7:4, 8:4, 9:4, 10:4};
+                for (let v = 1; v <= 10; v++) {
+                    for (let s of this.suits) {
+                        this.cards.push({
+                            value: v,
+                            name: v === 1 ? 'A' : (v === 10 ? '10' : v.toString()),
+                            realValue: v === 1 ? 11 : v, 
+                            suit: s,
+                            color: (s === '♥' || s === '♦') ? 'red' : 'black'
+                        });
+                    }
+                }
+                this.shuffle();
+            }
+
+            shuffle() {
+                for (let i = this.cards.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
+                }
+            }
+
+            draw() {
+                if (this.cards.length < 5) {
+                    window.UI.showToast("Baralho baixo. Reembaralhando...", "info");
+                    this.init();
+                    window.UI.updateGenieVision(this.counts, this.cards.length);
+                }
+                const card = this.cards.pop();
+                this.counts[card.value]--;
+                window.UI.updateGenieVision(this.counts, this.cards.length);
+                return card;
+            }
+        }
+
+        // 2. Anexar Módulos Globais para evitar erros de escopo estrito
+        window.UI = {
+            updateFinances: (isPotential = false) => {
+                document.getElementById('ui-balance').innerText = `$${window.Game.balance}`;
+                document.getElementById('ui-bet').innerText = `$${isPotential ? window.Game.potentialBet : window.Game.currentBet}`;
+                
+                const chips = document.querySelectorAll('.chip');
+                chips.forEach(chip => {
+                    const val = parseInt(chip.innerText);
+                    if (window.Game.balance < val || window.Game.gameState !== 'BETTING') {
+                        chip.classList.add('disabled');
+                    } else {
+                        chip.classList.remove('disabled');
+                    }
+                });
+            },
+
+            updateGenieVision: (counts, total) => {
+                let html = '';
+                for (let i = 1; i <= 10; i++) {
+                    let cardName = i === 1 ? 'A' : (i === 10 ? '10' : i.toString());
+                    let colorClass = counts[i] > 2 ? 'var(--primary)' : (counts[i] === 0 ? 'var(--danger)' : 'white');
+                    html += `<tr><td class="val">${cardName}</td><td style="color:${colorClass}; font-weight:700;">${counts[i]}</td></tr>`;
+                }
+                document.getElementById('ui-counting').innerHTML = html;
+                document.getElementById('ui-deck-size').innerText = total;
+                
+                const barFill = document.getElementById('ui-deck-bar');
+                const perc = (total / 40) * 100;
+                barFill.style.width = `${perc}%`;
+                barFill.style.background = total < 10 ? 'var(--danger)' : (total < 20 ? 'var(--accent)' : 'linear-gradient(90deg, var(--secondary), var(--primary))');
+            },
+
+            renderCard: (containerId, cardObj, isHidden = false) => {
+                const container = document.getElementById(containerId);
+                const cardEl = document.createElement('div');
+                if (isHidden) {
+                    cardEl.className = 'card hidden-card';
+                    cardEl.id = 'hidden-dealer-card';
+                } else {
+                    cardEl.className = `card ${cardObj.color}`;
+                    cardEl.innerHTML = `<div class="card-value">${cardObj.name}<div class="card-suit-small">${cardObj.suit}</div></div>
+                                        <div class="card-suit-main">${cardObj.suit}</div>
+                                        <div class="card-bottom"><div class="card-value">${cardObj.name}<div class="card-suit-small">${cardObj.suit}</div></div></div>`;
+                }
+                container.appendChild(cardEl);
+            },
+
+            revealDealerCard: (cardObj) => {
+                const hiddenEl = document.getElementById('hidden-dealer-card');
+                if (hiddenEl) {
+                    hiddenEl.className = `card ${cardObj.color}`; 
+                    hiddenEl.innerHTML = `<div class="card-value">${cardObj.name}<div class="card-suit-small">${cardObj.suit}</div></div>
+                                          <div class="card-suit-main">${cardObj.suit}</div>
+                                          <div class="card-bottom"><div class="card-value">${cardObj.name}<div class="card-suit-small">${cardObj.suit}</div></div></div>`;
+                    hiddenEl.removeAttribute('id'); 
+                    hiddenEl.style.animation = 'fadeIn 0.3s forwards';
+                }
+            },
+
+            updateScores: (pScore, dScore) => {
+                const ps = document.getElementById('player-score');
+                const ds = document.getElementById('dealer-score');
+                ps.classList.remove('hidden'); ds.classList.remove('hidden');
+                ps.innerText = pScore; ds.innerText = dScore;
+            },
+
+            clearTable: () => {
+                document.getElementById('player-cards').innerHTML = '';
+                document.getElementById('dealer-cards').innerHTML = '';
+                document.getElementById('player-score').classList.add('hidden');
+                document.getElementById('dealer-score').classList.add('hidden');
+            },
+
+            toggleActionButtons: (isPlaying) => {
+                document.getElementById('game-actions').classList.toggle('hidden', !isPlaying);
+                document.getElementById('btn-deal').classList.toggle('hidden', isPlaying);
+                document.getElementById('btn-clear').classList.toggle('hidden', isPlaying);
+                
+                const hackBtn = document.getElementById('btn-hack');
+                if (isPlaying && !window.Game.hackUsed && window.Game.gameState === 'PLAYING') {
+                    hackBtn.classList.remove('hidden');
+                } else {
+                    hackBtn.classList.add('hidden');
+                }
+            },
+
+            openModal: (id) => document.getElementById(id).classList.add('active'),
+            closeModal: (id) => document.getElementById(id).classList.remove('active'),
+
+            showToast: (msg, type = 'info') => {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.innerText = msg;
+                container.appendChild(toast);
+                setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 4000);
+            }
+        };
+
+        window.MathEngine = {
+            expectedSafeCards: 0,
+            expectedCombinations: 0,
+
+            triggerHitChallenge: () => {
+                if (window.Game.gameState !== 'PLAYING') return;
+                
+                const pScore = window.Game.getHandScore(window.Game.playerHand);
+                const limit = 21 - pScore;
+                
+                if (limit >= 10) { window.Game.playerHit(); return; }
+
+                window.MathEngine.expectedSafeCards = 0;
+                for (let i = 1; i <= limit; i++) {
+                    if (window.Game.deck.counts[i] !== undefined) {
+                        window.MathEngine.expectedSafeCards += window.Game.deck.counts[i];
+                    }
+                }
+
+                document.getElementById('prob-question').innerText = `Sua soma é ${pScore}. Você precisa de cartas até o valor ${limit}. Quantas cartas RESTANTES no baralho mantêm você vivo?`;
+                document.getElementById('input-prob').value = '';
+                window.UI.openModal('modal-prob');
+                setTimeout(() => document.getElementById('input-prob').focus(), 100);
+            },
+
+            validateHit: () => {
+                const inputStr = document.getElementById('input-prob').value;
+                if (!inputStr) return;
+                const input = parseInt(inputStr);
+                const box = document.querySelector('#modal-prob .modal-box');
+                
+                if (input === window.MathEngine.expectedSafeCards) {
+                    window.UI.closeModal('modal-prob');
+                    window.UI.showToast("Exato! Carta liberada.", "win");
+                    window.Game.playerHit();
+                } else {
+                    box.classList.add('shake');
+                    window.UI.showToast(`Falhou! Eram ${window.MathEngine.expectedSafeCards} seguras. Você perdeu!`, "loss");
+                    setTimeout(() => {
+                        box.classList.remove('shake');
+                        window.UI.closeModal('modal-prob');
+                        window.Game.gameState = 'ENDED';
+                        window.Game.endRound("Erro Matemático: Perdeu a aposta.", 0);
+                    }, 600);
+                }
+            },
+
+            triggerComboChallenge: () => {
+                if (window.Game.gameState !== 'PLAYING') return;
+                const tens = window.Game.deck.counts[10];
+                if (tens < 2) { window.UI.showToast("Faltam cartas '10' para o hack.", "warn"); return; }
+
+                window.MathEngine.expectedCombinations = (tens * (tens - 1)) / 2;
+                document.getElementById('comb-question').innerText = `Restam ${tens} cartas de valor 10. Quantas combinações C(n,2) formamos?`;
+                document.getElementById('input-comb').value = '';
+                window.UI.openModal('modal-comb');
+                setTimeout(() => document.getElementById('input-comb').focus(), 100);
+            },
+
+            validateCombo: () => {
+                const inputStr = document.getElementById('input-comb').value;
+                if (!inputStr) return;
+                const input = parseInt(inputStr);
+                const box = document.querySelector('#modal-comb .modal-box');
+                
+                if (input === window.MathEngine.expectedCombinations) {
+                    window.UI.closeModal('modal-comb');
+                    window.UI.showToast("HACKEADO! Aposta dobrada!", "warn");
+                    window.Game.currentBet *= 2;
+                    window.Game.hackUsed = true;
+                    window.UI.updateFinances();
+                    window.UI.toggleActionButtons(true);
+                } else {
+                    box.classList.add('shake');
+                    window.UI.showToast(`Detectado! A resposta era ${window.MathEngine.expectedCombinations}.`, "loss");
+                    setTimeout(() => {
+                        box.classList.remove('shake');
+                        window.UI.closeModal('modal-comb');
+                        window.Game.hackUsed = true;
+                        window.UI.toggleActionButtons(true);
+                    }, 600);
+                }
+            }
+        };
+
+        window.Game = {
+            deck: new Deck(),
+            balance: 1000, currentBet: 0, potentialBet: 0,
+            playerHand: [], dealerHand: [],
+            gameState: 'BETTING', hackUsed: false,
+
+            init: () => {
+                window.UI.updateGenieVision(window.Game.deck.counts, window.Game.deck.cards.length);
+                window.UI.updateFinances();
+                window.UI.toggleActionButtons(false);
+            },
+
+            getHandScore: (hand) => {
+                let score = hand.reduce((sum, c) => sum + c.realValue, 0);
+                let aces = hand.filter(c => c.name === 'A').length;
+                while (score > 21 && aces > 0) { score -= 10; aces--; }
+                return score;
+            },
+
+            adjustBet: (amount) => {
+                if (window.Game.gameState !== 'BETTING') return;
+                let newBet = window.Game.potentialBet + amount;
+                if (newBet > window.Game.balance) {
+                    window.UI.showToast("Saldo insuficiente.", "warn");
+                    window.Game.potentialBet = window.Game.balance;
+                } else { window.Game.potentialBet = newBet; }
+                window.UI.updateFinances(true);
+            },
+
+            clearBet: () => {
+                if (window.Game.gameState !== 'BETTING') return;
+                window.Game.potentialBet = 0;
+                window.UI.updateFinances(true);
+            },
+
+            dealInitialHands: () => {
+                if (window.Game.gameState !== 'BETTING') return;
+                if (window.Game.potentialBet <= 0) { window.UI.showToast("Adicione fichas!", "info"); return; }
+
+                window.Game.gameState = 'DEALING';
+                window.Game.currentBet = window.Game.potentialBet;
+                window.Game.balance -= window.Game.currentBet;
+                window.Game.potentialBet = 0;
+                window.Game.playerHand = []; window.Game.dealerHand = [];
+                window.Game.hackUsed = false;
+
+                window.UI.clearTable();
+                window.UI.updateFinances();
+                window.UI.toggleActionButtons(true);
+
+                window.Game.dealCard('player', 0);
+                window.Game.dealCard('dealer', 300);
+                window.Game.dealCard('player', 600);
+                window.Game.dealCard('dealer', 900, true);
+
+                setTimeout(() => { 
+                    window.Game.gameState = 'PLAYING';
+                    window.UI.toggleActionButtons(true); // Re-check hack button visibility
+                    window.Game.checkInitialState(); 
+                }, 1300);
+            },
+
+            dealCard: (target, delay, isHidden = false) => {
+                setTimeout(() => {
+                    const card = window.Game.deck.draw();
+                    if (target === 'player') {
+                        window.Game.playerHand.push(card);
+                        window.UI.renderCard('player-cards', card);
+                        window.UI.updateScores(window.Game.getHandScore(window.Game.playerHand), '?');
+                    } else {
+                        window.Game.dealerHand.push(card);
+                        window.UI.renderCard('dealer-cards', card, isHidden);
+                        if (!isHidden) window.UI.updateScores('?', window.Game.getHandScore([window.Game.dealerHand[0]]));
+                    }
+                }, delay);
+            },
+
+            checkInitialState: () => {
+                const pScore = window.Game.getHandScore(window.Game.playerHand);
+                if (pScore === 21) {
+                    window.Game.gameState = 'ENDED';
+                    window.Game.endRound("💥 BLACKJACK VIP 3:2!", 2.5);
+                }
+            },
+
+            playerHit: () => {
+                if (window.Game.gameState !== 'PLAYING') return;
+                const card = window.Game.deck.draw();
+                window.Game.playerHand.push(card);
+                window.UI.renderCard('player-cards', card);
+                
+                const pScore = window.Game.getHandScore(window.Game.playerHand);
+                window.UI.updateScores(pScore, '?');
+                
+                if (pScore > 21) {
+                    window.Game.gameState = 'ENDED';
+                    window.UI.toggleActionButtons(false);
+                    setTimeout(() => window.Game.endRound("💥 Estourou!", 0), 600);
+                } else if (pScore === 21) {
+                    window.Game.stand();
+                }
+            },
+
+            stand: () => {
+                if (window.Game.gameState !== 'PLAYING') return;
+                window.Game.gameState = 'DEALER_TURN';
+                window.UI.toggleActionButtons(false);
+                window.UI.revealDealerCard(window.Game.dealerHand[1]);
+                setTimeout(() => window.Game.dealerPlay(), 800);
+            },
+
+            dealerPlay: () => {
+                let dScore = window.Game.getHandScore(window.Game.dealerHand);
+                let pScore = window.Game.getHandScore(window.Game.playerHand);
+                window.UI.updateScores(pScore, dScore);
+
+                if (dScore < 17) {
+                    setTimeout(() => {
+                        const card = window.Game.deck.draw();
+                        window.Game.dealerHand.push(card);
+                        window.UI.renderCard('dealer-cards', card);
+                        window.Game.dealerPlay(); 
+                    }, 1000);
+                } else {
+                    setTimeout(() => window.Game.evaluateWinner(), 600);
+                }
+            },
+
+            evaluateWinner: () => {
+                const p = window.Game.getHandScore(window.Game.playerHand);
+                const d = window.Game.getHandScore(window.Game.dealerHand);
+                if (d > 21) window.Game.endRound("Dealer estourou!", 2);
+                else if (p > d) window.Game.endRound("Pontuação maior!", 2);
+                else if (p < d) window.Game.endRound("Banca venceu.", 0);
+                else window.Game.endRound("Empate (Push).", 1);
+            },
+
+            endRound: (msg, mult) => {
+                const win = window.Game.currentBet * mult;
+                window.Game.balance += win;
+                
+                let type = mult > 1 ? 'win' : (mult === 0 ? 'loss' : 'warn');
+                window.UI.showToast(win > window.Game.currentBet ? `${msg} +$${win - window.Game.currentBet}` : msg, type);
+
+                window.Game.currentBet = 0; window.Game.potentialBet = 0;
+                window.Game.gameState = 'BETTING';
+                
+                window.UI.updateFinances();
+                window.UI.toggleActionButtons(false);
+
+                if (window.Game.balance <= 0) {
+                    setTimeout(() => {
+                        window.UI.showToast("BANCARROTA! +$1000 de cortesia.", "loss");
+                        window.Game.balance = 1000;
+                        window.UI.updateFinances();
+                    }, 2000);
+                }
+            }
+        };
+
+        // 3. Setup Inicial ao Carregar
+        window.onload = () => {
+            document.getElementById('input-prob').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') window.MathEngine.validateHit();
+            });
+            document.getElementById('input-comb').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') window.MathEngine.validateCombo();
+            });
+            window.Game.init();
+            window.UI.showToast("Sistema online. Faça sua aposta!", "info");
+        };
+
+    </script>
+</body>
+</html>
